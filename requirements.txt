@@ -1,0 +1,4 @@
+pyopenssl
+requests_async
+sanic
+streamlink

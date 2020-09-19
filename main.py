@@ -54,9 +54,11 @@ BOTLOG = logging.getLogger("bot")
 
 
 with open("config.ini","r") as f:
+    BOT_NAME = f.readline()[:-1]
     TG_TOKEN = f.readline()[:-1]
     WEBHOOK_DOMEN = f.readline()[:-1]
     HOST_IP = f.readline()[:-1]
+
 
 
 PORT = os.environ.get('PORT') or 88
@@ -260,7 +262,8 @@ async def workerCommand(db, msg, command = None):
     if mail_id > -1:
         space_id = command.find(' ')
         if space_id > mail_id or space_id == -1:
-            command = command[:mail_id+15].lower().replace('@musicforus_bot','')+command[mail_id+15:]
+            print(command)
+            command = command[:mail_id+len(BOT_NAME)+1].lower().replace(f'@{BOT_NAME}','')+command[mail_id+len(BOT_NAME)+1:]
 
     if len(command.split())>1:
         command, args = command.split()
@@ -357,7 +360,7 @@ async def mainWorker(db, result):
 async def workerSender(db, streamer):
     await sendMessage(
         TG_SHELTER,
-        "Стрим начался!"
+        f"Начался стрим у {streamer['name']}!"
     )
 #demons
 async def streams_demon(db, ):
