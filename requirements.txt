@@ -1,4 +1,4 @@
 pyopenssl
-requests_async
+requests-async
 sanic
 streamlink

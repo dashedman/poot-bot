@@ -78,6 +78,7 @@ STREAMERS = [
     {"platform":"wasd.tv", "name":"Mighty Poot (wasd)", "id":"mightypoot", "online": True},
     {"platform":"twitch.tv", "name":"Mighty Poot (twitch)", "id":"mightypoot", "online": True},
 ]
+
 TG_CHANNELS = [
     -1001318931614,
     -1001450762287
