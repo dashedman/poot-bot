@@ -67,7 +67,7 @@ class WASDv2(Plugin):
         json_res = self.session.http.json(res, schema=self._api_schema)
         log.trace('{0!r}'.format(json_res))
         if not json_res:
-            raise PluginError('No data returned from URL={0}'.format(res.url))
+            return None
 
         for stream in json_res['media_container_streams']:
             log.debug('media_container_status: {0}, media_container_online_status: {1}'.format(

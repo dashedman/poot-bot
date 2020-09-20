@@ -78,6 +78,10 @@ STREAMERS = [
     {"platform":"wasd.tv", "name":"Mighty Poot (wasd)", "id":"mightypoot", "online": True},
     {"platform":"twitch.tv", "name":"Mighty Poot (twitch)", "id":"mightypoot", "online": True},
 ]
+TG_CHANNELS = [
+    -1001318931614,
+    -1001450762287
+]
 
 #StreamLink Session
 SLS = Streamlink()
@@ -262,14 +266,27 @@ async def workerCommand(db, msg, command = None):
     if mail_id > -1:
         space_id = command.find(' ')
         if space_id > mail_id or space_id == -1:
-            print(command)
             command = command[:mail_id+len(BOT_NAME)+1].lower().replace(f'@{BOT_NAME}','')+command[mail_id+len(BOT_NAME)+1:]
 
-    if len(command.split())>1:
-        command, args = command.split()
-
+    if len(args := command.split())>1:
+        command = args[0]
+        args = args[1:]
+    else:
+        args = []
 
     BOTLOG.info(f"Command: /{command}")
+    if command == "get_id":
+        await sendMessage(
+            msg['chat']['id'],
+            f"This chat id: {msg['chat']['id']}\n"
+        )
+    if msg['chat']['id'] != TG_SHELTER and msg['chat']['id'] not in TG_CHANNELS:
+        await sendMessage(
+            msg['chat']['id'],
+            NONPUBLIC_MSG
+        )
+        return
+
     if command == 'start':
         if 'username' in msg['from']:
             await sendKeyboard(msg['chat']['id'], \
@@ -309,6 +326,12 @@ async def workerCommand(db, msg, command = None):
                                  'selective':True },
                                  reply_to_message_id = msg['message_id'])
 
+    elif command == 'get_stickers':
+        await sendMessage(
+            msg['chat']['id'],
+            STIKERS_LINK,
+            reply_to_message_id=msg['message_id']
+        )
     elif command == "get_streams":
         table = ""
         for streamer in STREAMERS:
@@ -319,7 +342,13 @@ async def workerCommand(db, msg, command = None):
         )
     #commands for admins
     elif msg['chat']['id'] == TG_SHELTER:
-        pass
+        if command == "sendecho":
+            tmp_text = " ".join(args)
+            await workerSender(db, tmp_text)
+        elif command == "force_stream":
+            for streamer in STREAMERS:
+                if streamer["online"]:
+                    await workerSender(db, build_stream_text(streamer))
 
 async def workerMsg(db, msg):
     if 'text' in msg:
@@ -338,14 +367,40 @@ async def workerCallback(db, callback):
     if command == "pass":
         pass
 
-async def mainWorker(db, result):
+async def workerSender(db, send_text):
+    counter = 0
+    async def sender(chat_id):
+        nonlocal counter
+        counter += 1
+        await sendMessage(
+            chat_id,
+            send_text
+        )
+        counter -= 1
 
+    for channel in TG_CHANNELS:
+        asyncio.create_task(sender(channel))
+
+    await sendMessage(
+        TG_SHELTER,
+        send_text
+    )
+    while counter>0:
+        await asyncio.sleep(0)
+
+
+async def mainWorker(db, result):
     try:
         if 'message' in result:
             if time.time() - result['message']['date'] > 5*60:
                 BOTLOG.info("skip")
             else:
                 await workerMsg(  db, result['message'])
+        elif 'channel_post' in result:
+            if time.time() - result['channel_post']['date'] > 5*60:
+                BOTLOG.info("skip")
+            else:
+                await workerMsg(  db, result['channel_post'])
         #callback
         elif 'callback_query' in result:
             await workerCallback(  db, result['callback_query'])
@@ -357,39 +412,38 @@ async def mainWorker(db, result):
         BOTLOG.exception(f"Error ocured {err}")
     return
 
-async def workerSender(db, streamer):
-    await sendMessage(
-        TG_SHELTER,
-        f"Начался стрим у {streamer['name']}!"
-    )
 #demons
-async def streams_demon(db, ):
+async def streams_demon(db ):
 
     async def check_stream(streamer, trusted_deep=3):
         url = f"{streamer['platform']}/{streamer['id']}"
         #рекурсивная проверка
-        def recursive_check(level=1):
-            #если глубина проверки больше дозволеной то стрим оффлайн
-            if level>trusted_deep:
-                return False
-            try:
-                #Воспользуемся API streamlink'а. Через сессию получаем инфу о стриме. Если инфы нет - то считаем за офлайн.
-                if SLS.streams(url):
-                    return True #online
-            except PluginError as err:
-                pass
-            #если говорит что стрим оффлайн проверим еще раз
-            return recursive_check(level+1)
+        #для удобства квостовая рекурсия переделана в цикл
+        async def cicle_check():
+            level = 1
+            while(level <= trusted_deep):
+                #если глубина проверки больше дозволеной то стрим оффлайн
+                try:
+                    #Воспользуемся API streamlink'а. Через сессию получаем инфу о стриме. Если инфы нет - то считаем за офлайн.
+                    if SLS.streams(url):
+                        return True #online
+                except PluginError as err:
+                    #если проблемы с интернетом
+                    await asyncio.sleep(60)
+                    continue
+                level += 1
+                #если говорит что стрим оффлайн проверим еще раз
+            return False
 
-        return recursive_check()
+        return await cicle_check()
 
     while ALIVE:
         try:
             for streamer in STREAMERS:
-                online = await check_stream(streamer, 1)
+                online = await check_stream(streamer, 2)
 
                 if online and not streamer["online"]:
-                    await workerSender(streamer)
+                    await workerSender(db, build_stream_text(streamer))
                 streamer["online"] = online
         except Exception as err:
             await send_error(err)
@@ -523,15 +577,16 @@ def start_bot(WEB_HOOK_FLAG = True):
         loop = asyncio.get_event_loop()
 
         #pick type of listener and run
+        asyncio.run(sendMessage(TG_SHELTER, START_MSG))
         loop.create_task((WHlistener if WEB_HOOK_FLAG else LPlistener)(db))
         loop.run_forever()
 
     except Exception as err:
         #Any error should send ping message to developer
-        BOTLOG.info(f"я упал :с")
+        BOTLOG.info(FALL_MSG)
         while True:
             try:
-                asyncio.run(sendMessage(TG_SHELTER, "я упал :с"))
+                asyncio.run(sendMessage(TG_SHELTER, FALL_MSG))
             except Exception:
                 time.sleep(60)
             else:
@@ -543,6 +598,7 @@ def start_bot(WEB_HOOK_FLAG = True):
         raise(err)
     except BaseException as err:
         #Force exit with ctrl+C
+        asyncio.run(sendMessage(TG_SHELTER, FINISH_MSG))
         db_connect.close()
         loop.close()
         BOTLOG.info(f"Force exit. {err}")
