@@ -144,7 +144,6 @@ async def sendMessage(chat_id, text, **kwargs):
     r = response.json()
 
     if not r['ok']:
-        pprint(r)
         if r['error_code'] == 429:
             await sendMessage(chat_id, f"Слишком много запросов! Пожалуйста повторите через {r['parameters']['retry_after']+5} сек")
         else:
@@ -164,7 +163,6 @@ async def sendKeyboard(chat_id, text, keyboard, **kwargs):
 
     if not r['ok']:
         BOTLOG.info(pformat(r))
-        pprint(data)
         if r['error_code'] == 429:
             await sendMessage(chat_id, f"Слишком много запросов! Пожалуйста повторите через {r['parameters']['retry_after']+5} сек")
         elif r['error_code'] != 400:
@@ -494,7 +492,6 @@ async def WHlistener(db):
 
     @app_listener.route(f'/{TG_TOKEN}/', methods = ['GET','POST'])
     async def receive_update(request):
-        pprint(request.json)
         if request.method == "POST":
             await mainWorker(db, request.json)
         return sanic_json({"ok": True})
