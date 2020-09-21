@@ -12,7 +12,7 @@ START_MSG = "I'm on"
 FINISH_MSG = "I'm off"
 FALL_MSG = "I'm fall"
 ERROR_MSG = "Catching the error :с\n"
-NONPUBLIC_MSG = "Sorry.\nI'm didn't working in other chats"
+NONPUBLIC_MSG = "Sorry.\nI don't work in other chats/groups/channels"
 STIKERS_LINK = "t.me/addstickers/pootGard"
 HELP_TEXT = """❓ Help
 
