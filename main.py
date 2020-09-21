@@ -545,6 +545,7 @@ def start_bot(WEB_HOOK_FLAG = True):
     BOTLOG.info(f"Start...")
     #print important constants
     BOTLOG.info(f"""
+            {BOT_NAME=}
             {TG_TOKEN=}
             {TG_URL=}
             {TG_SHELTER=}
