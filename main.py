@@ -61,11 +61,11 @@ with open("config.ini","r") as f:
 
 
 
-PORT = os.environ.get('PORT') or 88
+PORT = os.environ.get('PORT') or 443
 
 TG_URL = "https://api.telegram.org/bot"+ TG_TOKEN +"/"
 TG_SHELTER = -1001483908315
-WEBHOOK_URL = f"{WEBHOOK_DOMEN}/{TG_TOKEN}/"
+WEBHOOK_URL = f"https://{WEBHOOK_DOMEN}:{PORT}/{TG_TOKEN}/"
 
 PKEY_FILE = "bot.pem"
 KEY_FILE = "bot.key"
@@ -626,7 +626,7 @@ if __name__ == "__main__":
     if args.ip: HOST_IP = args.ip
     if args.domen:
         WEBHOOK_DOMEN = args.domen
-        WEBHOOK_URL = f"{WEBHOOK_DOMEN}/{TG_TOKEN}/"
+        WEBHOOK_URL = f"https://{WEBHOOK_DOMEN}:{PORT}/{TG_TOKEN}/"
     if args.ssl != None:
         SELF_SSL = bool(args.ssl)
 
