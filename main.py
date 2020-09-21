@@ -80,7 +80,8 @@ STREAMERS = [
 ]
 
 TG_CHANNELS = [
-    -1001450762287
+    -1001450762287,
+    -1001461862272
 ]
 
 #StreamLink Session
