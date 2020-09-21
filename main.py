@@ -65,7 +65,7 @@ PORT = os.environ.get('PORT') or 88
 
 TG_URL = "https://api.telegram.org/bot"+ TG_TOKEN +"/"
 TG_SHELTER = -1001483908315
-WEBHOOK_URL = f"https://{WEBHOOK_DOMEN}/{TG_TOKEN}/"
+WEBHOOK_URL = f"{WEBHOOK_DOMEN}/{TG_TOKEN}/"
 
 PKEY_FILE = "bot.pem"
 KEY_FILE = "bot.key"
@@ -80,8 +80,7 @@ STREAMERS = [
 ]
 
 TG_CHANNELS = [
-    -1001318931614,
-    -1001450762287
+    -1001318931614
 ]
 
 #StreamLink Session
@@ -145,6 +144,7 @@ async def sendMessage(chat_id, text, **kwargs):
     r = response.json()
 
     if not r['ok']:
+        pprint(r)
         if r['error_code'] == 429:
             await sendMessage(chat_id, f"Слишком много запросов! Пожалуйста повторите через {r['parameters']['retry_after']+5} сек")
         else:
@@ -492,8 +492,9 @@ async def WHlistener(db):
 
     app_listener = Sanic(__name__)
 
-    @app_listener.route('/{}/'.format(TG_TOKEN), methods = ['GET','POST'])
+    @app_listener.route(f'/{TG_TOKEN}/', methods = ['GET','POST'])
     async def receive_update(request):
+        pprint(request.json)
         if request.method == "POST":
             await mainWorker(db, request.json)
         return sanic_json({"ok": True})
@@ -604,6 +605,7 @@ def start_bot(WEB_HOOK_FLAG = True):
         db_connect.close()
         loop.close()
         BOTLOG.info(f"Force exit. {err}")
+    finally:
         with open("botlogs.log", "r") as f:
             old_logs = f.read()
         with open("last_botlogs.log", "w") as f:
@@ -624,7 +626,7 @@ if __name__ == "__main__":
     if args.ip: HOST_IP = args.ip
     if args.domen:
         WEBHOOK_DOMEN = args.domen
-        WEBHOOK_URL = f"https://{WEBHOOK_DOMEN}/{TG_TOKEN}/"
+        WEBHOOK_URL = f"{WEBHOOK_DOMEN}/{TG_TOKEN}/"
     if args.ssl != None:
         SELF_SSL = bool(args.ssl)
 
