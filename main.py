@@ -624,9 +624,8 @@ if __name__ == "__main__":
 
     if args.port: PORT = args.port
     if args.ip: HOST_IP = args.ip
-    if args.domen:
-        WEBHOOK_DOMEN = args.domen
-        WEBHOOK_URL = f"https://{WEBHOOK_DOMEN}:{PORT}/{TG_TOKEN}/"
+    if args.domen: WEBHOOK_DOMEN = args.domen
+    WEBHOOK_URL = f"https://{WEBHOOK_DOMEN}:{PORT}/{TG_TOKEN}/"
     if args.ssl != None:
         SELF_SSL = bool(args.ssl)
 
