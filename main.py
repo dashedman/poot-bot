@@ -388,7 +388,7 @@ async def workerSender(db, send_text, everyone = False):
         )))
 
     for channel in DIS_CHANNELS:
-        asyncio.create_task(sender(channel.send(send_text + "\n{}" if everyone else "")))
+        asyncio.create_task(sender(channel.send(send_text + "\n@everyone" if everyone else "")))
 
     await sendMessage(
         TG_SHELTER,
