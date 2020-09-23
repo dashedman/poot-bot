@@ -12,6 +12,7 @@ import os
 import html
 import ssl
 import logging
+import signal
 
 from pprint import pprint, pformat
 from collections import namedtuple, deque
@@ -46,14 +47,6 @@ from ui_constants import *
 #
 #  CONSTATNS
 #
-file_log = logging.FileHandler("botlogs.log", mode = "w")
-console_out = logging.StreamHandler()
-logging.basicConfig(
-    handlers=(file_log, console_out),
-    format='[%(asctime)s | %(levelname)s] %(name)s: %(message)s',
-    datefmt='%a %b %d %H:%M:%S %Y',
-    level=logging.INFO)
-BOTLOG = logging.getLogger("bot")
 
 
 with open("config.ini","r") as f:
@@ -503,7 +496,11 @@ async def discord_demon(db ):
 
     await DIS_CLIENT.login(DIS_TOKEN)
     asyncio.create_task(load_channels())
-    await DIS_CLIENT.connect()
+    try:
+        await DIS_CLIENT.connect()
+    except BaseException:
+        print("ПИПАВСЬ")
+        raise
 
 def pandora_box(db):
     asyncio.create_task(discord_demon(db))
@@ -634,6 +631,11 @@ def start_bot(WEB_HOOK_FLAG = True):
             BOTLOG.info(f"\t{table[0]}")
 
         loop = asyncio.get_event_loop()
+        try:
+            loop.add_signal_handler(signal.SIGINT, lambda: loop.stop())
+            loop.add_signal_handler(signal.SIGTERM, lambda: loop.stop())
+        except NotImplementedError:
+            pass
 
         global DIS_CLIENT
         DIS_CLIENT = discord.Client(loop = loop)
@@ -676,7 +678,17 @@ if __name__ == "__main__":
     parser.add_argument('-i', action="store", dest="ip", default=None)
     parser.add_argument('-d', action="store", dest="domen", default=None)
     parser.add_argument('-s', action="store", dest="ssl", default=None, type=int)
+    parser.add_argument('-b', action="store", dest="bugs", default=None, type=int)
     args = parser.parse_args()
+
+    file_log = logging.FileHandler("botlogs.log", mode = "w")
+    console_out = logging.StreamHandler()
+    logging.basicConfig(
+        handlers=(file_log, console_out),
+        format='[%(asctime)s | %(levelname)s] %(name)s: %(message)s',
+        datefmt='%a %b %d %H:%M:%S %Y',
+        level=logging.DEBUG if args.bugs else logging.INFO)
+    BOTLOG = logging.getLogger("bot")
 
     if args.port: PORT = args.port
     if args.ip: HOST_IP = args.ip
