@@ -35,4 +35,4 @@ ABOUT_TEXT = """📔 About!
 py3.8"""
 
 def build_stream_text(streamer):
-    return f"pogChamp\nНачался стрим у {streamer['name']}!\n{streamer['platform']}/{streamer['id']}"
+    return f"Начался стрим у {streamer['name']}!\nhttps://{streamer['platform']}/{streamer['id']}"

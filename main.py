@@ -380,7 +380,7 @@ async def workerCallback(db, callback):
     if command == "pass":
         pass
 
-async def workerSender(db, send_text):
+async def workerSender(db, send_text, everyone = False):
     counter = 0
     async def sender(send_func):
         nonlocal counter
@@ -395,7 +395,7 @@ async def workerSender(db, send_text):
         )))
 
     for channel in DIS_CHANNELS:
-        asyncio.create_task(sender(channel.send(send_text)))
+        asyncio.create_task(sender(channel.send(send_text + "\n{}" if everyone else "")))
 
     await sendMessage(
         TG_SHELTER,
@@ -458,7 +458,7 @@ async def streams_demon(db ):
                 online = await check_stream(streamer, 2)
 
                 if online and not streamer["online"]:
-                    await workerSender(db, build_stream_text(streamer))
+                    await workerSender(db, build_stream_text(streamer), True)
                 streamer["online"] = online
         except Exception as err:
             await send_error(err)
@@ -469,32 +469,40 @@ async def discord_demon(db ):
 
     async def load_channels():
         global DIS_SHELTER
+        while not DIS_CLIENT.is_ready():
+            await asyncio.sleep(0)
+
         DIS_SHELTER = DIS_CLIENT.get_channel(DIS_SHELTER)
         for it, channel in enumerate(DIS_CHANNELS):
             DIS_CHANNELS[it] = DIS_CLIENT.get_channel(channel)
+
+        t = f"DISCORD_SHELTER: {str(DIS_SHELTER)}\nDiscord channels:\n"
+        for it, channel in enumerate(DIS_CHANNELS):
+            t += f"\t{it+1}) {str(channel)}"
+        await DIS_SHELTER.send(t)
 
     @DIS_CLIENT.event
     async def on_message(message):
         if message.author == DIS_CLIENT.user:
             return
 
+        if len(message.content) < 1:
+            return
         msg_parts = message.content.split(' ')
-        command = None
+        command = ""
         if msg_parts[0][0] == '!':
             command = msg_parts[0][1:]
             args = msg_parts[1:]
+
         if command == 'echo':
             await message.channel.send(' '.join(args))
         elif command == 'get_id':
             await message.channel.send(message.channel.id)
         elif command == 'deploy':
             await load_channels()
-            t = f"DISCORD_SHELTER: {str(DIS_SHELTER)}\nDiscord channels:\n"
-            for it, channel in enumerate(DIS_CHANNELS):
-                t += f"\t{it+1}) {str(channel)}"
-            await message.channel.send(t)
 
     await DIS_CLIENT.login(DIS_TOKEN)
+    asyncio.create_task(load_channels())
     await DIS_CLIENT.connect()
 
 def pandora_box(db):
@@ -637,6 +645,7 @@ def start_bot(WEB_HOOK_FLAG = True):
     except Exception as err:
         #Any error should send ping message to developer
         BOTLOG.info(FALL_MSG)
+        BOTLOG.exception(f"Error ocured {err}")
         while True:
             try:
                 asyncio.run(sendMessage(TG_SHELTER, FALL_MSG))
@@ -644,7 +653,6 @@ def start_bot(WEB_HOOK_FLAG = True):
                 time.sleep(60)
             else:
                 break
-        BOTLOG.exception(f"Error ocured {err}")
         raise(err)
     except BaseException as err:
         #Force exit with ctrl+C
