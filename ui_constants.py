@@ -29,7 +29,8 @@ HELP_TEXT = """❓ Help
 
 ABOUT_TEXT = """📔 About!
 
-📫 For any questions: @dashed_man
+📫 For any questions - telegram: @dashed_man
+🍰 For donates: https://www.donationalerts.com/r/dashed_man
 
 py3.8"""
 

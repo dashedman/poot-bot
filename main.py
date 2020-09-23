@@ -19,6 +19,9 @@ from copy import deepcopy
 from functools import partial
 from random import randint
 
+#discord api
+import discord
+
 #ssl generate lib
 from OpenSSL import crypto
 
@@ -55,9 +58,10 @@ BOTLOG = logging.getLogger("bot")
 
 with open("config.ini","r") as f:
     BOT_NAME = f.readline()[:-1]
-    TG_TOKEN = f.readline()[:-1]
     WEBHOOK_DOMEN = f.readline()[:-1]
     HOST_IP = f.readline()[:-1]
+    TG_TOKEN = f.readline()[:-1]
+    DIS_TOKEN = f.readline()[:-1]
 
 
 
@@ -65,6 +69,8 @@ PORT = os.environ.get('PORT') or 443
 
 TG_URL = "https://api.telegram.org/bot"+ TG_TOKEN +"/"
 TG_SHELTER = -1001483908315
+DIS_CLIENT = None
+DIS_SHELTER = 758297066635132959
 WEBHOOK_URL = f"https://{WEBHOOK_DOMEN}:{PORT}/{TG_TOKEN}/"
 
 PKEY_FILE = "bot.pem"
@@ -82,6 +88,9 @@ STREAMERS = [
 TG_CHANNELS = [
     -1001450762287,
     -1001461862272
+]
+DIS_CHANNELS = [
+    600446916286742538,
 ]
 
 #StreamLink Session
@@ -345,6 +354,10 @@ async def workerCommand(db, msg, command = None):
         if command == "sendecho":
             tmp_text = " ".join(args)
             await workerSender(db, tmp_text)
+        if command == "testecho":
+            tmp_text = " ".join(args)
+            await sendMessage(TG_SHELTER, tmp_text)
+            await DIS_SHELTER.send(tmp_text)
         elif command == "force_stream":
             for streamer in STREAMERS:
                 if streamer["online"]:
@@ -369,17 +382,20 @@ async def workerCallback(db, callback):
 
 async def workerSender(db, send_text):
     counter = 0
-    async def sender(chat_id):
+    async def sender(send_func):
         nonlocal counter
         counter += 1
-        await sendMessage(
-            chat_id,
-            send_text
-        )
+        await send_func
         counter -= 1
 
     for channel in TG_CHANNELS:
-        asyncio.create_task(sender(channel))
+        asyncio.create_task(sender(sendMessage(
+            channel,
+            send_text
+        )))
+
+    for channel in DIS_CHANNELS:
+        asyncio.create_task(sender(channel.send(send_text)))
 
     await sendMessage(
         TG_SHELTER,
@@ -387,7 +403,6 @@ async def workerSender(db, send_text):
     )
     while counter>0:
         await asyncio.sleep(0)
-
 
 async def mainWorker(db, result):
     try:
@@ -449,8 +464,41 @@ async def streams_demon(db ):
             await send_error(err)
         await asyncio.sleep(30)
 
+async def discord_demon(db ):
+    global DIS_SHELTER
+
+    async def load_channels():
+        global DIS_SHELTER
+        DIS_SHELTER = DIS_CLIENT.get_channel(DIS_SHELTER)
+        for it, channel in enumerate(DIS_CHANNELS):
+            DIS_CHANNELS[it] = DIS_CLIENT.get_channel(channel)
+
+    @DIS_CLIENT.event
+    async def on_message(message):
+        if message.author == DIS_CLIENT.user:
+            return
+
+        msg_parts = message.content.split(' ')
+        command = None
+        if msg_parts[0][0] == '!':
+            command = msg_parts[0][1:]
+            args = msg_parts[1:]
+        if command == 'echo':
+            await message.channel.send(' '.join(args))
+        elif command == 'get_id':
+            await message.channel.send(message.channel.id)
+        elif command == 'deploy':
+            await load_channels()
+            t = f"DISCORD_SHELTER: {str(DIS_SHELTER)}\nDiscord channels:\n"
+            for it, channel in enumerate(DIS_CHANNELS):
+                t += f"\t{it+1}) {str(channel)}"
+            await message.channel.send(t)
+
+    await DIS_CLIENT.login(DIS_TOKEN)
+    await DIS_CLIENT.connect()
 
 def pandora_box(db):
+    asyncio.create_task(discord_demon(db))
     asyncio.create_task(streams_demon(db))
 
 #listeners
@@ -561,7 +609,7 @@ def start_bot(WEB_HOOK_FLAG = True):
         db_connect = sqlite3.connect("botbase.db")
         db_cursor = db_connect.cursor()
 
-        db = namedtuple('Database', 'conn cursor')(conn = db_connect, cursor = db_cursor)
+        db = namedtuple('Database', 'connect cursor')(connect = db_connect, cursor = db_cursor)
 
         #if new database
         #all_mode table
@@ -577,6 +625,8 @@ def start_bot(WEB_HOOK_FLAG = True):
 
         loop = asyncio.get_event_loop()
 
+        global DIS_CLIENT
+        DIS_CLIENT = discord.Client(loop = loop)
         #pick type of listener and run
         asyncio.run(sendMessage(TG_SHELTER, START_MSG))
         loop.create_task((WHlistener if WEB_HOOK_FLAG else LPlistener)(db))
@@ -592,18 +642,16 @@ def start_bot(WEB_HOOK_FLAG = True):
                 time.sleep(60)
             else:
                 break
-
-        db_connect.close()
-        loop.close()
         BOTLOG.exception(f"Error ocured {err}")
         raise(err)
     except BaseException as err:
         #Force exit with ctrl+C
+        asyncio.run(DIS_CLIENT.logout())
         asyncio.run(sendMessage(TG_SHELTER, FINISH_MSG))
-        db_connect.close()
-        loop.close()
         BOTLOG.info(f"Force exit. {err}")
     finally:
+        db.connect.close()
+        loop.close()
         with open("botlogs.log", "r") as f:
             old_logs = f.read()
         with open("last_botlogs.log", "w") as f:
