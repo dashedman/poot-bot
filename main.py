@@ -73,13 +73,8 @@ CERT_DIR = ""
 SELF_SSL = True
 ALIVE = True
 
-STREAMERS = [
-    {"platform":"wasd.tv", "name":"Mighty Poot (wasd)", "id":"mightypoot", "online": True},
-    {"platform":"twitch.tv", "name":"Mighty Poot (twitch)", "id":"mightypoot", "online": True},
-]
 
 TG_CHANNELS = [
-    -1001450762287,
     -1001461862272
 ]
 DIS_CHANNELS = [
@@ -123,6 +118,14 @@ def create_self_signed_cert(cert_dir):
         f.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, k).decode("ascii"))
 
     return crypto.dump_certificate(crypto.FILETYPE_PEM, cert).decode("ascii")
+
+def get_streamers():
+    with open("streamers.json","r",encoding='utf-8') as f:
+        return json.load(f)
+
+def set_streamers(streamers_update):
+    with open("streamers.json","w",encoding='utf-8') as f:
+        json.dump(streamers_update, f, indent = 4)
 
 #tg send functions
 async def setWebhook(url='', certificate=None):
@@ -282,12 +285,6 @@ async def workerCommand(db, msg, command = None):
             msg['chat']['id'],
             f"This chat id: {msg['chat']['id']}\n"
         )
-    if msg['chat']['id'] != TG_SHELTER and msg['chat']['id'] not in TG_CHANNELS:
-        await sendMessage(
-            msg['chat']['id'],
-            NONPUBLIC_MSG
-        )
-        return
 
     if command == 'start':
         if 'username' in msg['from']:
@@ -336,7 +333,7 @@ async def workerCommand(db, msg, command = None):
         )
     elif command == "get_streams":
         table = ""
-        for streamer in STREAMERS:
+        for streamer in get_streamers():
             table += f"Streamer {streamer['name']} is {'online' if streamer['online'] else 'offline'};\n"
         await sendMessage(
             msg['chat']['id'],
@@ -352,9 +349,13 @@ async def workerCommand(db, msg, command = None):
             await sendMessage(TG_SHELTER, tmp_text)
             await DIS_SHELTER.send(tmp_text)
         elif command == "force_stream":
-            for streamer in STREAMERS:
+            for streamer in get_streamers():
                 if streamer["online"]:
                     await workerSender(db, build_stream_text(streamer))
+        elif command == "test_stream":
+            for streamer in get_streamers():
+                if streamer["online"]:
+                    await sendMessage(TG_SHELTER, build_stream_text(streamer))
 
 async def workerMsg(db, msg):
     if 'text' in msg:
@@ -445,14 +446,22 @@ async def streams_demon(db ):
 
         return await cicle_check()
 
+    #online profilactic
+    streamers = get_streamers()
+    for streamer in streamers:
+        streamer['online'] = True
+    set_streamers(streamers)
+
     while ALIVE:
         try:
-            for streamer in STREAMERS:
+            for streamer in (streamers := get_streamers()):
                 online = await check_stream(streamer, 2)
 
                 if online and not streamer["online"]:
                     await workerSender(db, build_stream_text(streamer), True)
                 streamer["online"] = online
+            set_streamers(streamers)
+
         except Exception as err:
             await send_error(err)
         await asyncio.sleep(30)

@@ -1,3 +1,6 @@
+import json
+from random import choice
+
 MAIN_KEYBOARD = [[{'text':'🎭 Stickers'},{'text':'❓ Help'},{'text':'🔨 Settings'},{'text':'📔 About'}]]
 
 SETTINGS_KEYBOARD = [[{'text':'↩️ Back'}]]
@@ -35,4 +38,5 @@ ABOUT_TEXT = """📔 About!
 py3.8"""
 
 def build_stream_text(streamer):
-    return f"Начался стрим у {streamer['name']}!\nhttps://{streamer['platform']}/{streamer['id']}"
+    with open("notificslist.json", "r", encoding='utf-8') as f:
+        return choice(json.load(f)).format(**streamer)
