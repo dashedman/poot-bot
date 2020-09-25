@@ -343,7 +343,7 @@ async def workerCommand(db, msg, command = None):
     elif msg['chat']['id'] == TG_SHELTER:
         if command == "sendecho":
             tmp_text = " ".join(args)
-            await workerSender(db, tmp_text)
+            await workerSender(db, [tmp_text]*2)
         if command == "testecho":
             tmp_text = " ".join(args)
             await sendMessage(TG_SHELTER, tmp_text)
@@ -353,9 +353,14 @@ async def workerCommand(db, msg, command = None):
                 if streamer["online"]:
                     await workerSender(db, build_stream_text(streamer))
         elif command == "test_stream":
-            for streamer in get_streamers():
-                if streamer["online"]:
-                    await sendMessage(TG_SHELTER, build_stream_text(streamer))
+            tmp_text = build_stream_text({
+                "platform": "test.tv",
+                "name": "Test Streamer (test)",
+                "id": "teststreamer",
+                "online": True
+            })
+            await sendMessage(TG_SHELTER, tmp_text[0])
+            DIS_SHELTER.send(tmp_text[1])
 
 async def workerMsg(db, msg):
     if 'text' in msg:
@@ -374,7 +379,7 @@ async def workerCallback(db, callback):
     if command == "pass":
         pass
 
-async def workerSender(db, send_text, everyone = False):
+async def workerSender(db, send_text):
     counter = 0
     async def sender(send_func):
         nonlocal counter
@@ -385,15 +390,15 @@ async def workerSender(db, send_text, everyone = False):
     for channel in TG_CHANNELS:
         asyncio.create_task(sender(sendMessage(
             channel,
-            send_text
+            send_text[0]
         )))
 
     for channel in DIS_CHANNELS:
-        asyncio.create_task(sender(channel.send(send_text + "\n@everyone" if everyone else "")))
+        asyncio.create_task(sender(channel.send(send_text[1])))
 
     await sendMessage(
         TG_SHELTER,
-        send_text
+        send_text[0]
     )
     while counter>0:
         await asyncio.sleep(0)
@@ -458,7 +463,7 @@ async def streams_demon(db ):
                 online = await check_stream(streamer, 2)
 
                 if online and not streamer["online"]:
-                    await workerSender(db, build_stream_text(streamer), True)
+                    await workerSender(db, build_stream_text(streamer))
                 streamer["online"] = online
             set_streamers(streamers)
 

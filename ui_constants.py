@@ -39,4 +39,5 @@ py3.8"""
 
 def build_stream_text(streamer):
     with open("notificslist.json", "r", encoding='utf-8') as f:
-        return choice(json.load(f)).format(**streamer)
+        print(r := [x.format(**streamer) for x in choice(json.load(f))])
+        return r
