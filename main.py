@@ -360,7 +360,7 @@ async def workerCommand(db, msg, command = None):
                 "online": True
             })
             await sendMessage(TG_SHELTER, tmp_text[0])
-            DIS_SHELTER.send(tmp_text[1])
+            await DIS_SHELTER.send(tmp_text[1])
 
 async def workerMsg(db, msg):
     if 'text' in msg:
