@@ -11,6 +11,7 @@ KEYBOARD_COMMANDS = { '❓ Help':'help',
                       '🎭 Stickers':'get_stickers',
                       '↩️ Back':'start'}
 
+BAD_WORD = "*oh*"
 START_MSG = "I'm on"
 FINISH_MSG = "I'm off"
 FALL_MSG = "I'm fall"
