@@ -502,7 +502,9 @@ async def discord_demon(db ):
             args = msg_parts[1:]
 
         if command == 'echo':
-            await message.channel.send(' '.join(args).replace('@everyone','').replace('@here',''))
+            msg = re.sub(r"<@.*?>", '', ' '.join(args))
+            if msg:
+                await message.channel.send(msg)
         elif command == 'get_id':
             await message.channel.send(message.channel.id)
         elif command == 'deploy':
@@ -654,7 +656,6 @@ def start_bot(WEB_HOOK_FLAG = True):
         global DIS_CLIENT
         DIS_CLIENT = discord.Client(loop = loop)
         #pick type of listener and run
-        asyncio.run(sendMessage(TG_SHELTER, START_MSG))
         loop.create_task((WHlistener if WEB_HOOK_FLAG else LPlistener)(db))
         loop.run_forever()
 
@@ -673,7 +674,6 @@ def start_bot(WEB_HOOK_FLAG = True):
     except BaseException as err:
         #Force exit with ctrl+C
         asyncio.run(DIS_CLIENT.logout())
-        asyncio.run(sendMessage(TG_SHELTER, FINISH_MSG))
         BOTLOG.info(f"Force exit. {err}")
     finally:
         db.connect.close()
