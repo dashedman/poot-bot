@@ -502,7 +502,7 @@ async def discord_demon(db ):
             args = msg_parts[1:]
 
         if command == 'echo':
-            await message.channel.send(' '.join(args))
+            await message.channel.send(' '.join(args).replace('@everyone','').replace('@here',''))
         elif command == 'get_id':
             await message.channel.send(message.channel.id)
         elif command == 'deploy':
