@@ -502,7 +502,7 @@ async def discord_demon(db ):
             args = msg_parts[1:]
 
         if command == 'echo':
-            msg = re.sub(r"<@.*?>", '', ' '.join(args))
+            msg = re.sub(r"<@.*?>", '', ' '.join(args)).replace("@here","").replace("@everyone","")
             if msg:
                 await message.channel.send(msg)
         elif command == 'get_id':
