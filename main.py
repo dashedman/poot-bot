@@ -514,6 +514,9 @@ async def discord_demon(db ):
             await message.channel.send(ABOUT_TEXT)
         elif command == 'get_id':
             await message.channel.send(message.channel.id)
+        elif command == "":
+            if args[0] == "бля":
+                await message.channel.send("бля")
 
     await DIS_CLIENT.login(DIS_TOKEN)
     asyncio.create_task(load_channels())
