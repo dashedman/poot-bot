@@ -496,7 +496,7 @@ async def discord_demon(db ):
         if len(message.content) < 1:
             return
         msg_parts = message.content.split(' ')
-        command = ""
+        command = None
         if msg_parts[0][0] == '!':
             command = msg_parts[0][1:]
             args = msg_parts[1:]
@@ -514,8 +514,8 @@ async def discord_demon(db ):
             await message.channel.send(ABOUT_TEXT)
         elif command == 'get_id':
             await message.channel.send(message.channel.id)
-        elif command == "":
-            if args[0] == "бля":
+        elif command is None:
+            if msg_parts[0] == "бля":
                 await message.channel.send("бля")
 
     await DIS_CLIENT.login(DIS_TOKEN)
