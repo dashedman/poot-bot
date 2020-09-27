@@ -505,12 +505,15 @@ async def discord_demon(db ):
             msg = re.sub(r"<@.*?>", BAD_WORD, ' '.join(args)).replace("@here", BAD_WORD).replace("@everyone", BAD_WORD)
             if msg:
                 await message.channel.send(msg)
+        elif command == 'echot':
+            msg = re.sub(r"<@.*?>", BAD_WORD, ' '.join(args)).replace("@here", BAD_WORD).replace("@everyone", BAD_WORD)
+            if msg:
+                await message.channel.send(msg)
+                await message.delete()
         elif command == 'about':
             await message.channel.send(ABOUT_TEXT)
         elif command == 'get_id':
             await message.channel.send(message.channel.id)
-        elif command == 'deploy':
-            await load_channels()
 
     await DIS_CLIENT.login(DIS_TOKEN)
     asyncio.create_task(load_channels())
