@@ -506,7 +506,7 @@ async def discord_demon(db ):
                 await message.channel.send("бля")
             elif message.content.lower() == "да":
                 await message.channel.send("пизда")
-            elif message.content.find("<@!"+DIS_CLIENT.user.id+">") != -1:
+            elif message.content.find("<@!"+str(DIS_CLIENT.user.id)+">") != -1:
                 await message.channel.send("._.")
 
         elif command == 'echo':
