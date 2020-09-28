@@ -506,6 +506,8 @@ async def discord_demon(db ):
                 await message.channel.send("бля")
             if message.content.lower() == "да":
                 await message.channel.send("пизда")
+            if "<@!"+DIS_CLIENT.user.id+">" in message.content:
+                await message.channel.send("._.")
 
         elif command == 'echo':
             msg = re.sub(r"<@.*?>", BAD_WORD, ' '.join(args)).replace("@here", BAD_WORD).replace("@everyone", BAD_WORD)
