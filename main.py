@@ -501,22 +501,27 @@ async def discord_demon(db ):
             command = msg_parts[0][1:]
             args = msg_parts[1:]
 
-        if command == 'echo':
+        if command is None:
+            if msg_parts[0].lower() == "бля":
+                await message.channel.send("бля")
+            if message.content.lower() == "да":
+                await message.channel.send("пизда")
+
+        elif command == 'echo':
             msg = re.sub(r"<@.*?>", BAD_WORD, ' '.join(args)).replace("@here", BAD_WORD).replace("@everyone", BAD_WORD)
             if msg:
                 await message.channel.send(msg)
         elif command == 'echot':
             msg = re.sub(r"<@.*?>", BAD_WORD, ' '.join(args)).replace("@here", BAD_WORD).replace("@everyone", BAD_WORD)
             if msg:
-                await message.channel.send(msg)
                 await message.delete()
+                await message.channel.send(msg)
         elif command == 'about':
             await message.channel.send(ABOUT_TEXT)
         elif command == 'get_id':
             await message.channel.send(message.channel.id)
-        elif command is None:
-            if msg_parts[0] == "бля":
-                await message.channel.send("бля")
+        elif command == '?':
+            await message.channel.send("да" if randint(0,1) else "нет")
 
     await DIS_CLIENT.login(DIS_TOKEN)
     asyncio.create_task(load_channels())
