@@ -474,7 +474,7 @@ async def streams_demon(db ):
         await asyncio.sleep(30)
 
 async def discord_demon(db ):
-    global DIS_SHELTER, LAST_JOKE, JOKE_COOLDOWN
+    global DIS_SHELTER
 
     async def load_channels():
         global DIS_SHELTER
@@ -503,6 +503,7 @@ async def discord_demon(db ):
             command = msg_parts[0][1:]
             args = msg_parts[1:]
 
+        global LAST_JOKE, JOKE_COOLDOWN
         if command is None and LAST_JOKE+JOKE_COOLDOWN < time.time():
             LAST_JOKE = time.time()
             if msg_parts[0].lower() == "бля":
