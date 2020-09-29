@@ -73,6 +73,8 @@ CERT_DIR = ""
 SELF_SSL = True
 ALIVE = True
 
+LAST_JOKE = 0
+JOKE_COOLDOWN = 3*60*60
 
 TG_CHANNELS = [
     -1001461862272
@@ -472,7 +474,7 @@ async def streams_demon(db ):
         await asyncio.sleep(30)
 
 async def discord_demon(db ):
-    global DIS_SHELTER
+    global DIS_SHELTER, LAST_JOKE, JOKE_COOLDOWN
 
     async def load_channels():
         global DIS_SHELTER
@@ -501,13 +503,12 @@ async def discord_demon(db ):
             command = msg_parts[0][1:]
             args = msg_parts[1:]
 
-        if command is None:
+        if command is None and LAST_JOKE+JOKE_COOLDOWN < time.time():
+            LAST_JOKE = time.time()
             if msg_parts[0].lower() == "бля":
                 await message.channel.send("бля")
             elif message.content.lower() == "да":
                 await message.channel.send("пизда")
-            elif message.content.find("<@!"+str(DIS_CLIENT.user.id)+">") != -1:
-                await message.channel.send("._.")
 
         elif command == 'echo':
             msg = re.sub(r"<@.*?>", BAD_WORD, ' '.join(args)).replace("@here", BAD_WORD).replace("@everyone", BAD_WORD)
@@ -524,6 +525,8 @@ async def discord_demon(db ):
             await message.channel.send(message.channel.id)
         elif command == '?':
             await message.channel.send("да" if randint(0,1) else "нет")
+        elif command == 'help':
+            await message.channel.send("Не жди помощи. Этот мир прогнил...")
 
     await DIS_CLIENT.login(DIS_TOKEN)
     asyncio.create_task(load_channels())
