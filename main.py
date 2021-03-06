@@ -74,7 +74,7 @@ SELF_SSL = True
 ALIVE = True
 
 LAST_JOKE = 0
-JOKE_COOLDOWN = 3*60*60
+JOKE_COOLDOWN = 60*60
 
 TG_CHANNELS = [
     -1001461862272
@@ -85,7 +85,7 @@ DIS_CHANNELS = [
 
 #StreamLink Session
 SLS = Streamlink()
-SLS.load_plugins("streamlink_plugins/")
+#SLS.load_plugins("streamlink_plugins/")
 SLS.set_plugin_option("twitch", "disable_hosting", True)
 SLS.set_plugin_option("twitch", "disable_reruns", True)
 SLS.set_plugin_option("twitch", "disable-ads", True)
@@ -398,10 +398,6 @@ async def workerSender(db, send_text):
     for channel in DIS_CHANNELS:
         asyncio.create_task(sender(channel.send(send_text[1])))
 
-    await sendMessage(
-        TG_SHELTER,
-        send_text[0]
-    )
     while counter>0:
         await asyncio.sleep(0)
 
@@ -441,12 +437,12 @@ async def streams_demon(db ):
                 #если глубина проверки больше дозволеной то стрим оффлайн
                 try:
                     #Воспользуемся API streamlink'а. Через сессию получаем инфу о стриме. Если инфы нет - то считаем за офлайн.
-                    if SLS.streams(url):
+                    res = SLS.streams(url)
+                    if res:
                         return True #online
                 except PluginError as err:
                     #если проблемы с интернетом
                     await asyncio.sleep(60)
-                    continue
                 level += 1
                 #если говорит что стрим оффлайн проверим еще раз
             return False
