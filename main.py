@@ -389,6 +389,12 @@ async def workerSender(db, send_text):
         await send_func
         counter -= 1
 
+    """
+    asyncio.create_task(sender(sendMessage(
+        TG_SHELTER,
+        send_text[0]
+    )))
+    """
     for channel in TG_CHANNELS:
         asyncio.create_task(sender(sendMessage(
             channel,
@@ -459,8 +465,10 @@ async def streams_demon(db ):
         try:
             for streamer in (streamers := get_streamers()):
                 online = await check_stream(streamer, 2)
+                BOTLOG.info(f"{streamer['name']} [{streamer['online']} -> {online}]")
 
                 if online and not streamer["online"]:
+                    BOTLOG.info(f"Broadcast!")
                     await workerSender(db, build_stream_text(streamer))
                 streamer["online"] = online
             set_streamers(streamers)
