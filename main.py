@@ -1,5 +1,5 @@
 ###############################################
-#LIBS
+# LIBS
 
 import asyncio
 import sqlite3
@@ -20,26 +20,26 @@ from copy import deepcopy
 from functools import partial
 from random import randint
 
-#discord api
+# discord api
 import discord
 
-#ssl generate lib
+# ssl generate lib
 from OpenSSL import crypto
 
-#import requests
-#asynchronious requests-like
+# import requests
+# asynchronious requests-like
 from h11._util import RemoteProtocolError
 from requests.exceptions import ConnectionError
 import requests_async as requests
 
-#asynchronious flask-like
+# asynchronious flask-like
 from sanic import Sanic
 from sanic.response import json as sanic_json
 
-#streamlink lib
+# streamlink lib
 from streamlink import Streamlink, StreamError, PluginError, NoPluginError
 
-#my local lib
+# my local lib
 from ui_constants import *
 
 
@@ -49,7 +49,7 @@ from ui_constants import *
 #
 
 
-with open("config.ini","r") as f:
+with open("config.ini", "r") as f:
     BOT_NAME = f.readline()[:-1]
     WEBHOOK_DOMEN = f.readline()[:-1]
     HOST_IP = f.readline()[:-1]
@@ -57,10 +57,9 @@ with open("config.ini","r") as f:
     DIS_TOKEN = f.readline()[:-1]
 
 
-
 PORT = os.environ.get('PORT') or 443
 
-TG_URL = "https://api.telegram.org/bot"+ TG_TOKEN +"/"
+TG_URL = "https://api.telegram.org/bot" + TG_TOKEN + "/"
 TG_SHELTER = -1001483908315
 DIS_CLIENT = None
 DIS_SHELTER = 758297066635132959
@@ -83,35 +82,35 @@ DIS_CHANNELS = [
     600446916286742538,
 ]
 
-#StreamLink Session
+
+# StreamLink Session
 SLS = Streamlink()
-#SLS.load_plugins("streamlink_plugins/")
+# SLS.load_plugins("streamlink_plugins/")
 SLS.set_plugin_option("twitch", "disable_hosting", True)
 SLS.set_plugin_option("twitch", "disable_reruns", True)
 SLS.set_plugin_option("twitch", "disable-ads", True)
 
 ############################################################
 #
-#FUNCTIONS
+# FUNCTIONS
 #
 def create_self_signed_cert(cert_dir):
     k = crypto.PKey()
-    k.generate_key(crypto.TYPE_RSA, 1024)   #  размер может быть 2048, 4196
+    k.generate_key(crypto.TYPE_RSA, 1024)   # размер может быть 2048, 4196
 
     #  Создание сертификата
     cert = crypto.X509()
-    cert.get_subject().C = "RU"   #  указываем свои данные
+    cert.get_subject().C = "RU"   # указываем свои данные
     cert.get_subject().ST = "Saint-Petersburg"
-    cert.get_subject().L = "Saint-Petersburg"   #  указываем свои данные
-    cert.get_subject().O = "musicforus"   #  указываем свои данные
-    cert.get_subject().CN = WEBHOOK_DOMEN   #  указываем свои данные
+    cert.get_subject().L = "Saint-Petersburg"   # указываем свои данные
+    cert.get_subject().O = "musicforus"   # указываем свои данные
+    cert.get_subject().CN = WEBHOOK_DOMEN   # указываем свои данные
     cert.set_serial_number(1)
     cert.gmtime_adj_notBefore(0)
-    cert.gmtime_adj_notAfter(365*24*60*60)   #  срок "жизни" сертификата
+    cert.gmtime_adj_notAfter(365*24*60*60)   # срок "жизни" сертификата
     cert.set_issuer(cert.get_subject())
     cert.set_pubkey(k)
     cert.sign(k, 'SHA256')
-
 
     with open(os.path.join(cert_dir, CERT_FILE), "w") as f:
         f.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert).decode("ascii"))
@@ -121,15 +120,18 @@ def create_self_signed_cert(cert_dir):
 
     return crypto.dump_certificate(crypto.FILETYPE_PEM, cert).decode("ascii")
 
+
 def get_streamers():
-    with open("streamers.json","r",encoding='utf-8') as f:
+    with open("streamers.json", "r", encoding='utf-8') as f:
         return json.load(f)
+
 
 def set_streamers(streamers_update):
     with open("streamers.json","w",encoding='utf-8') as f:
         json.dump(streamers_update, f, indent = 4)
 
-#tg send functions
+
+# tg send functions
 async def setWebhook(url='', certificate=None):
     await requests.post(
         TG_URL + 'setWebhook',
@@ -138,8 +140,10 @@ async def setWebhook(url='', certificate=None):
         timeout=None
     )
 
+
 async def getWebhookInfo():
     return await requests.post(TG_URL + 'getWebhookInfo', timeout=None)
+
 
 async def sendMessage(chat_id, text, **kwargs):
     data = {
@@ -232,17 +236,17 @@ async def getChatMember(chat_id, user_id):
         'user_id': user_id
     }
 
-    response = await requests.post(TG_URL + 'getChatMember', json = data, timeout=None)
+    response = await requests.post(TG_URL + 'getChatMember', json=data, timeout=None)
     r = response.json()
 
     if not r['ok']:
-        if false and r['error_code'] == 429:
+        if r['error_code'] == 429:
             await sendMessage(chat_id, f"Слишком много запросов! Пожалуйста повторите через {r['parameters']['retry_after']+5} сек")
         else:
             raise Exception(f"bad Message: {r}")
     return r['result']
 
-#msg demon-worker functions
+# msg demon-worker functions
 async def is_admin(msg):
     if msg['chat']['type'] == "private":
         return True
@@ -583,7 +587,7 @@ async def WHlistener(db):
 
     app_listener = Sanic(__name__)
 
-    @app_listener.route(f'/{TG_TOKEN}/', methods = ['GET','POST'])
+    @app_listener.route(f'/{TG_TOKEN}/', methods=['GET', 'POST'])
     async def receive_update(request):
         if request.method == "POST":
             await mainWorker(db, request.json)
@@ -591,29 +595,31 @@ async def WHlistener(db):
 
     BOTLOG.info(f"Listening...")
     server = app_listener.create_server(
-        host = HOST_IP,
-        port = PORT,
+        host=HOST_IP,
+        port=PORT,
         return_asyncio_server=True,
-        access_log = False,
-        ssl = context if SELF_SSL else None
+        access_log=False,
+        ssl=context if SELF_SSL else None
     )
 
     pandora_box(db)
     asyncio.create_task(server)
-#requests only
+
+
+# requests only
 async def LPlistener(db):
     LONGPOLING_OFFSET = 0
     LONGPOLING_DELAY = 3
 
-    #offwebhook
+    # offwebhook
     await setWebhook()
 
     pandora_box(db)
-    #start listen
+    # start listen
     BOTLOG.info(f"Listening...")
     while True:
 
-        #get new messages
+        # get new messages
         success = False
 
         while not success:
@@ -626,15 +632,17 @@ async def LPlistener(db):
                 success = r['ok']
             await asyncio.sleep(LONGPOLING_DELAY)
 
-        #go to proceed all of them
+        # go to proceed all of them
         for result in r['result']:
             LONGPOLING_OFFSET = max(LONGPOLING_OFFSET,result['update_id'])+1
             asyncio.create_task(mainWorker(db, result))
-#start func
-def start_bot(WEB_HOOK_FLAG = True):
+
+
+# start func
+def start_bot(WEB_HOOK_FLAG=True):
 
     BOTLOG.info(f"Start...")
-    #print important constants
+    # print important constants
     BOTLOG.info(f"""
             {BOT_NAME=}
             {TG_TOKEN=}
@@ -650,19 +658,18 @@ def start_bot(WEB_HOOK_FLAG = True):
             {PORT=}""")
 
     try:
-        #database loading
+        # database loading
         BOTLOG.info(f"Database loading...")
         db_connect = sqlite3.connect("botbase.db")
         db_cursor = db_connect.cursor()
 
-        db = namedtuple('Database', 'connect cursor')(connect = db_connect, cursor = db_cursor)
+        db = namedtuple('Database', 'connect cursor')(connect=db_connect, cursor=db_cursor)
 
-        #if new database
-        #all_mode table
+        # if new database
+        # all_mode table
         db_cursor.execute(
             """CREATE TABLE IF NOT EXISTS chats
             (id TEXT PRIMARY KEY)""")
-
 
         db_cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
         BOTLOG.info("TABLES:")
@@ -678,12 +685,12 @@ def start_bot(WEB_HOOK_FLAG = True):
 
         global DIS_CLIENT
         DIS_CLIENT = discord.Client(loop = loop)
-        #pick type of listener and run
+        # pick type of listener and run
         loop.create_task((WHlistener if WEB_HOOK_FLAG else LPlistener)(db))
         loop.run_forever()
 
     except Exception as err:
-        #Any error should send ping message to developer
+        # Any error should send ping message to developer
         BOTLOG.info(FALL_MSG)
         BOTLOG.exception(f"Error ocured {err}")
         while True:
@@ -695,7 +702,7 @@ def start_bot(WEB_HOOK_FLAG = True):
                 break
         raise(err)
     except BaseException as err:
-        #Force exit with ctrl+C
+        # Force exit with ctrl+C
         asyncio.run(DIS_CLIENT.logout())
         BOTLOG.info(f"Force exit. {err}")
     finally:
@@ -706,8 +713,9 @@ def start_bot(WEB_HOOK_FLAG = True):
         with open("last_botlogs.log", "w") as f:
             f.write(old_logs)
 
+
 if __name__ == "__main__":
-    #parse args
+    # parse args
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-w', action="store", dest="webhook_on", default=1, type=int)
@@ -718,21 +726,22 @@ if __name__ == "__main__":
     parser.add_argument('-b', action="store", dest="bugs", default=None, type=int)
     args = parser.parse_args()
 
-    file_log = logging.FileHandler("botlogs.log", mode = "w")
+    file_log = logging.FileHandler("botlogs.log", mode="w")
     console_out = logging.StreamHandler()
     logging.basicConfig(
         handlers=(file_log, console_out),
         format='[%(asctime)s | %(levelname)s] %(name)s: %(message)s',
         datefmt='%a %b %d %H:%M:%S %Y',
-        level=logging.DEBUG if args.bugs else logging.INFO)
+        level=logging.DEBUG if args.bugs else logging.INFO
+    )
     BOTLOG = logging.getLogger("bot")
 
     if args.port: PORT = args.port
     if args.ip: HOST_IP = args.ip
     if args.domen: WEBHOOK_DOMEN = args.domen
     WEBHOOK_URL = f"https://{WEBHOOK_DOMEN}:{PORT}/{TG_TOKEN}/"
-    if args.ssl != None:
+    if args.ssl is not None:
         SELF_SSL = bool(args.ssl)
 
-    #if main then start bot
+    # if main then start bot
     start_bot(bool(args.webhook_on))
