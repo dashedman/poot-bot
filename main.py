@@ -77,7 +77,8 @@ LAST_JOKE = 0
 JOKE_COOLDOWN = 60*60
 
 TG_CHANNELS = [
-    -1001461862272
+    -1001461862272, # chanel
+    -1001450762287  # group
 ]
 DIS_CHANNELS = [
     600446916286742538,
@@ -468,7 +469,6 @@ async def streams_demon(db ):
                 BOTLOG.info(f"{streamer['name']} [{streamer['online']} -> {online}]")
 
                 if online and not streamer["online"]:
-                    BOTLOG.info(f"Broadcast!")
                     await workerSender(db, build_stream_text(streamer))
                 streamer["online"] = online
             set_streamers(streamers)
@@ -710,7 +710,7 @@ if __name__ == "__main__":
     #parse args
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-w', action="store", dest="webhook_on", default=1, type=int)
+    parser.add_argument('-w', action="store", dest="webhook_on", default=0, type=int)
     parser.add_argument('-p', action="store", dest="port", default=None, type=int)
     parser.add_argument('-i', action="store", dest="ip", default=None)
     parser.add_argument('-d', action="store", dest="domen", default=None)
