@@ -1,6 +1,3 @@
-###############################################
-# LIBS
-
 import asyncio
 import sqlite3
 import time
@@ -12,10 +9,11 @@ import os
 import html
 import ssl
 import logging
+import logging.handlers
 import signal
 
-from pprint import pprint, pformat
-from collections import namedtuple, deque
+from pprint import pformat
+from collections import namedtuple
 from copy import deepcopy
 from functools import partial
 from random import randint
@@ -37,7 +35,7 @@ from sanic import Sanic
 from sanic.response import json as sanic_json
 
 # streamlink lib
-from streamlink import Streamlink, StreamError, PluginError, NoPluginError
+from streamlink import Streamlink, PluginError
 
 # my local lib
 from ui_constants import *
@@ -62,7 +60,8 @@ PORT = os.environ.get('PORT') or 443
 TG_URL = "https://api.telegram.org/bot" + TG_TOKEN + "/"
 TG_SHELTER = -1001483908315
 DIS_CLIENT = None
-DIS_SHELTER = 758297066635132959
+DIS_SHELTER_ID = 758297066635132959
+DIS_SHELTER: 'discord.Client' = None
 WEBHOOK_URL = f"https://{WEBHOOK_DOMEN}:{PORT}/{TG_TOKEN}/"
 
 PKEY_FILE = "bot.pem"
@@ -76,7 +75,7 @@ LAST_JOKE = 0
 JOKE_COOLDOWN = 60*60
 
 TG_CHANNELS = [
-    -1001461862272, # chanel
+    -1001461862272,  # chanel
     -1001450762287  # group
 ]
 DIS_CHANNELS = [
@@ -95,6 +94,8 @@ SLS.set_plugin_option("twitch", "disable-ads", True)
 #
 # FUNCTIONS
 #
+
+
 def create_self_signed_cert(cert_dir):
     k = crypto.PKey()
     k.generate_key(crypto.TYPE_RSA, 1024)   # размер может быть 2048, 4196
@@ -111,7 +112,7 @@ def create_self_signed_cert(cert_dir):
     cert.gmtime_adj_notAfter(365*24*60*60)   # срок "жизни" сертификата
     cert.set_issuer(cert.get_subject())
     cert.set_pubkey(k)
-    cert.sign(k, 'SHA256')
+    cert.sign(k, b'SHA256')
 
     with open(os.path.join(cert_dir, CERT_FILE), "w") as f:
         f.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert).decode("ascii"))
@@ -128,16 +129,16 @@ def get_streamers():
 
 
 def set_streamers(streamers_update):
-    with open("streamers.json","w",encoding='utf-8') as f:
-        json.dump(streamers_update, f, indent = 4)
+    with open("streamers.json", "w", encoding='utf-8') as f:
+        json.dump(streamers_update, f, indent=4)
 
 
 # tg send functions
 async def setWebhook(url='', certificate=None):
     await requests.post(
         TG_URL + 'setWebhook',
-        data = {'url':url},
-        files = {'certificate':certificate} if certificate else None,
+        data={'url': url},
+        files={'certificate': certificate} if certificate else None,
         timeout=None
     )
 
@@ -148,12 +149,12 @@ async def getWebhookInfo():
 
 async def sendMessage(chat_id, text, **kwargs):
     data = {
-        'chat_id':chat_id,
+        'chat_id': chat_id,
         'text': text
     }
     data.update(kwargs)
 
-    response = await requests.post(TG_URL + 'sendMessage', json = data, timeout=None)
+    response = await requests.post(TG_URL + 'sendMessage', json=data, timeout=None)
     r = response.json()
 
     if not r['ok']:
@@ -163,15 +164,16 @@ async def sendMessage(chat_id, text, **kwargs):
             raise Exception(f"bad Message: {r}")
     return r['result']
 
+
 async def sendKeyboard(chat_id, text, keyboard, **kwargs):
     data = {
-        'chat_id':chat_id,
+        'chat_id': chat_id,
         'text': text,
         'reply_markup': keyboard
     }
     data.update(kwargs)
 
-    response = await requests.post(TG_URL + 'sendMessage', json = data, timeout=None)
+    response = await requests.post(TG_URL + 'sendMessage', json=data, timeout=None)
     r = response.json()
 
     if not r['ok']:
@@ -180,17 +182,19 @@ async def sendKeyboard(chat_id, text, keyboard, **kwargs):
             await sendMessage(chat_id, f"Слишком много запросов! Пожалуйста повторите через {r['parameters']['retry_after']+5} сек")
         elif r['error_code'] != 400:
             raise Exception(f"bad Keyboard: {r}\n")
-        else: return
+        else:
+            return
     return r['result']
+
 
 async def editKeyboard(chat_id, message_id, keyboard):
     data = {
-        'chat_id':chat_id,
+        'chat_id': chat_id,
         'message_id': message_id,
         'reply_markup': keyboard
     }
 
-    response = await requests.post(TG_URL + 'editMessageReplyMarkup', json = data, timeout=None)
+    response = await requests.post(TG_URL + 'editMessageReplyMarkup', json=data, timeout=None)
     r = response.json()
 
     if not r['ok']:
@@ -201,19 +205,20 @@ async def editKeyboard(chat_id, message_id, keyboard):
         else: return
     return r['result']
 
-async def sendAudio(chat_id, file = None, url = None, telegram_id = None, **kwargs):
+
+async def sendAudio(chat_id, file=None, url=None, telegram_id=None, **kwargs):
     files = None
     if file:
         data = {
-            'chat_id':chat_id
+            'chat_id': chat_id
         }
-        files = {'audio':file}
-    elif url != None:
+        files = {'audio': file}
+    elif url is None:
         data = {
             'chat_id':chat_id,
             'audio': url
         }
-    elif telegram_id != None:
+    elif telegram_id is None:
         data = {
             'chat_id':chat_id,
             'audio': telegram_id
@@ -222,7 +227,7 @@ async def sendAudio(chat_id, file = None, url = None, telegram_id = None, **kwar
         raise Exception("Bad audio path!")
 
     data.update(kwargs)
-    response = await requests.post(TG_URL + 'sendAudio', data = data, files = files, timeout=None)
+    response = await requests.post(TG_URL + 'sendAudio', data=data, files=files, timeout=None)
     r = response.json()
     if not r['ok']:
         if r['error_code'] == 429:
@@ -230,6 +235,7 @@ async def sendAudio(chat_id, file = None, url = None, telegram_id = None, **kwar
         else:
             raise Exception(f"bad Audio: {r}")
     return r['result']
+
 
 async def getChatMember(chat_id, user_id):
     data = {
@@ -247,6 +253,7 @@ async def getChatMember(chat_id, user_id):
             raise Exception(f"bad Message: {r}")
     return r['result']
 
+
 # msg demon-worker functions
 async def is_admin(msg):
     if msg['chat']['type'] == "private":
@@ -258,7 +265,8 @@ async def is_admin(msg):
         return True
     return False
 
-async def send_error( err):
+
+async def send_error(err):
     BOTLOG.info(ERROR_MSG)
     while True:
         try:
@@ -269,7 +277,7 @@ async def send_error( err):
             break
 
 
-#asynchronious workers
+# asynchronious workers
 async def workerCommand(db, msg, command = None):
     if not command:
         command = msg['text'][1:]
@@ -295,27 +303,27 @@ async def workerCommand(db, msg, command = None):
 
     if command == 'start':
         if 'username' in msg['from']:
-            await sendKeyboard(msg['chat']['id'], \
+            await sendKeyboard(msg['chat']['id'],
                             f"Keyboard for @{msg['from'].get('username')}",
                             {'keyboard': MAIN_KEYBOARD,
                              'resize_keyboard': True,
                              'selective': True})
         else:
-            await sendKeyboard(msg['chat']['id'], \
+            await sendKeyboard(msg['chat']['id'],
                             f"Keyboard for...",
                             {'keyboard': MAIN_KEYBOARD,
                              'resize_keyboard': True,
                              'selective': True},
-                             reply_to_message_id = msg['message_id'])
+                             reply_to_message_id=msg['message_id'])
     elif command == 'echo':
-        await sendMessage(msg['chat']['id'], \
-                            " ".join(args))
+        await sendMessage(msg['chat']['id'],
+                          " ".join(args))
     elif command == 'help':
-        await sendMessage(msg['chat']['id'], \
-                            HELP_TEXT)
+        await sendMessage(msg['chat']['id'],
+                          HELP_TEXT)
     elif command == 'about':
-        await sendMessage(msg['chat']['id'], \
-                            ABOUT_TEXT)
+        await sendMessage(msg['chat']['id'],
+                          ABOUT_TEXT)
     elif command == 'settings':
         tmp_settings_keyboard = deepcopy(SETTINGS_KEYBOARD)
         if 'username' in msg['from']:
@@ -323,14 +331,14 @@ async def workerCommand(db, msg, command = None):
                                 f"{msg['text']} for @{msg['from'].get('username')}",
                                 {'keyboard': tmp_settings_keyboard,
                                  'resize_keyboard': True,
-                                 'selective':True })
+                                 'selective': True})
         else:
             await sendKeyboard(msg['chat']['id'],
                                 f"{msg['text']} for...",
                                 {'keyboard': tmp_settings_keyboard,
                                  'resize_keyboard': True,
-                                 'selective':True },
-                                 reply_to_message_id = msg['message_id'])
+                                 'selective': True},
+                                reply_to_message_id=msg['message_id'])
 
     elif command == 'get_stickers':
         await sendMessage(
@@ -346,7 +354,7 @@ async def workerCommand(db, msg, command = None):
             msg['chat']['id'],
             table
         )
-    #commands for admins
+    # commands for admins
     elif msg['chat']['id'] == TG_SHELTER:
         if command == "sendecho":
             tmp_text = " ".join(args)
@@ -369,14 +377,16 @@ async def workerCommand(db, msg, command = None):
             await sendMessage(TG_SHELTER, tmp_text[0])
             await DIS_SHELTER.send(tmp_text[1])
 
+
 async def workerMsg(db, msg):
     if 'text' in msg:
         if msg['text'][0] == '/':
-            #if command
-            await workerCommand(  db, msg)
+            # if command
+            await workerCommand(db, msg)
         elif msg['text'] in KEYBOARD_COMMANDS:
-            #if keyboard
-            await workerCommand(  db, msg, KEYBOARD_COMMANDS[msg['text']])
+            # if keyboard
+            await workerCommand(db, msg, KEYBOARD_COMMANDS[msg['text']])
+
 
 async def workerCallback(db, callback):
     data = callback['data'].split('@')
@@ -386,8 +396,10 @@ async def workerCallback(db, callback):
     if command == "pass":
         pass
 
+
 async def workerSender(db, send_text):
     counter = 0
+
     async def sender(send_func):
         nonlocal counter
         counter += 1
@@ -409,8 +421,9 @@ async def workerSender(db, send_text):
     for channel in DIS_CHANNELS:
         asyncio.create_task(sender(channel.send(send_text[1])))
 
-    while counter>0:
+    while counter > 0:
         await asyncio.sleep(0)
+
 
 async def mainWorker(db, result):
     try:
@@ -418,15 +431,15 @@ async def mainWorker(db, result):
             if time.time() - result['message']['date'] > 5*60:
                 BOTLOG.info("skip")
             else:
-                await workerMsg(  db, result['message'])
+                await workerMsg(db, result['message'])
         elif 'channel_post' in result:
             if time.time() - result['channel_post']['date'] > 5*60:
                 BOTLOG.info("skip")
             else:
-                await workerMsg(  db, result['channel_post'])
-        #callback
+                await workerMsg(db, result['channel_post'])
+        # callback
         elif 'callback_query' in result:
-            await workerCallback(  db, result['callback_query'])
+            await workerCallback(db, result['callback_query'])
         elif 'edited_message' in result:
             pass
 
@@ -435,32 +448,34 @@ async def mainWorker(db, result):
         BOTLOG.exception(f"Error ocured {err}")
     return
 
-#demons
-async def streams_demon(db ):
+
+# demons
+async def streams_demon(db):
 
     async def check_stream(streamer, trusted_deep=3):
         url = f"{streamer['platform']}/{streamer['id']}"
-        #рекурсивная проверка
-        #для удобства квостовая рекурсия переделана в цикл
+
+        # рекурсивная проверка
+        # для удобства хвостовая рекурсия переделана в цикл
         async def cicle_check():
             level = 1
-            while(level <= trusted_deep):
-                #если глубина проверки больше дозволеной то стрим оффлайн
+            while level <= trusted_deep:
+                # если глубина проверки больше дозволеной то стрим оффлайн
                 try:
-                    #Воспользуемся API streamlink'а. Через сессию получаем инфу о стриме. Если инфы нет - то считаем за офлайн.
+                    # Воспользуемся API streamlink'а. Через сессию получаем инфу о стриме. Если инфы нет - то считаем за офлайн.
                     res = SLS.streams(url)
                     if res:
-                        return True #online
-                except PluginError as err:
-                    #если проблемы с интернетом
+                        return True  # online
+                except PluginError:
+                    # если проблемы с интернетом
                     await asyncio.sleep(60)
                 level += 1
-                #если говорит что стрим оффлайн проверим еще раз
+                # если говорит что стрим оффлайн проверим еще раз
             return False
 
         return await cicle_check()
 
-    #online profilactic
+    # online profilactic
     streamers = get_streamers()
     for streamer in streamers:
         streamer['online'] = True
@@ -481,7 +496,8 @@ async def streams_demon(db ):
             await send_error(err)
         await asyncio.sleep(30)
 
-async def discord_demon(db ):
+
+async def discord_demon(db):
     global DIS_SHELTER
 
     async def load_channels():
@@ -489,7 +505,7 @@ async def discord_demon(db ):
         while not DIS_CLIENT.is_ready():
             await asyncio.sleep(0)
 
-        DIS_SHELTER = DIS_CLIENT.get_channel(DIS_SHELTER)
+        DIS_SHELTER = DIS_CLIENT.get_channel(DIS_SHELTER_ID)
         for it, channel in enumerate(DIS_CHANNELS):
             DIS_CHANNELS[it] = DIS_CLIENT.get_channel(channel)
 
@@ -506,7 +522,7 @@ async def discord_demon(db ):
         if len(message.content) < 1:
             return
         msg_parts = message.content.split(' ')
-        command = None
+        command = args = None
         if msg_parts[0][0] == '!':
             command = msg_parts[0][1:]
             args = msg_parts[1:]
@@ -533,7 +549,7 @@ async def discord_demon(db ):
         elif command == 'get_id':
             await message.channel.send(message.channel.id)
         elif command == '?':
-            await message.channel.send("да" if randint(0,1) else "нет")
+            await message.channel.send("да" if randint(0, 1) else "нет")
         elif command == 'help':
             await message.channel.send("Не жди помощи. Этот мир прогнил...")
 
@@ -545,20 +561,22 @@ async def discord_demon(db ):
         print("ПИПАВСЬ")
         raise
 
+
 def pandora_box(db):
     asyncio.create_task(discord_demon(db))
     asyncio.create_task(streams_demon(db))
 
-#listeners
-#~~flask~~ ~~vibora~~ sanic, requests
+
+# listeners
+# ~~flask~~ ~~vibora~~ sanic, requests
 async def WHlistener(db):
     BOTLOG.info(f"Set Webhook...")
-    #create ssl and webhook
+    # create ssl and webhook
     if SELF_SSL:
-        #create ssl for webhook
+        # create ssl for webhook
         create_self_signed_cert(CERT_DIR)
         with open(os.path.join(CERT_DIR, CERT_FILE), "rb") as f:
-            await setWebhook(WEBHOOK_URL, certificate = f)
+            await setWebhook(WEBHOOK_URL, certificate=f)
 
         context = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
         context.load_cert_chain(
@@ -621,10 +639,11 @@ async def LPlistener(db):
 
         # get new messages
         success = False
+        r = None
 
         while not success:
             try:
-                response = await requests.get(TG_URL + 'getUpdates',params =  {"offset":LONGPOLING_OFFSET}, timeout=None)
+                response = await requests.get(TG_URL + 'getUpdates', params={"offset": LONGPOLING_OFFSET}, timeout=None)
                 r = response.json()
             except TimeoutError:
                 pass
@@ -634,7 +653,7 @@ async def LPlistener(db):
 
         # go to proceed all of them
         for result in r['result']:
-            LONGPOLING_OFFSET = max(LONGPOLING_OFFSET,result['update_id'])+1
+            LONGPOLING_OFFSET = max(LONGPOLING_OFFSET, result['update_id'])+1
             asyncio.create_task(mainWorker(db, result))
 
 
@@ -657,38 +676,38 @@ def start_bot(WEB_HOOK_FLAG=True):
             {HOST_IP=}
             {PORT=}""")
 
+    loop = asyncio.get_event_loop()
     try:
-        # database loading
-        BOTLOG.info(f"Database loading...")
-        db_connect = sqlite3.connect("botbase.db")
-        db_cursor = db_connect.cursor()
+        loop.add_signal_handler(signal.SIGINT, lambda: loop.stop())
+        loop.add_signal_handler(signal.SIGTERM, lambda: loop.stop())
+    except NotImplementedError:
+        pass
 
-        db = namedtuple('Database', 'connect cursor')(connect=db_connect, cursor=db_cursor)
+    # database loading
+    BOTLOG.info(f"Database loading...")
+    db_connect = sqlite3.connect("botbase.db")
+    db_cursor = db_connect.cursor()
 
-        # if new database
-        # all_mode table
-        db_cursor.execute(
-            """CREATE TABLE IF NOT EXISTS chats
-            (id TEXT PRIMARY KEY)""")
+    db = namedtuple('Database', 'connect cursor')(connect=db_connect, cursor=db_cursor)
 
-        db_cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
-        BOTLOG.info("TABLES:")
-        for table in db_cursor.fetchall():
-            BOTLOG.info(f"\t{table[0]}")
+    # if new database
+    # all_mode table
+    db_cursor.execute(
+        """CREATE TABLE IF NOT EXISTS chats
+        (id TEXT PRIMARY KEY)""")
 
-        loop = asyncio.get_event_loop()
-        try:
-            loop.add_signal_handler(signal.SIGINT, lambda: loop.stop())
-            loop.add_signal_handler(signal.SIGTERM, lambda: loop.stop())
-        except NotImplementedError:
-            pass
+    db_cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+    BOTLOG.info("TABLES:")
+    for table in db_cursor.fetchall():
+        BOTLOG.info(f"\t{table[0]}")
 
-        global DIS_CLIENT
-        DIS_CLIENT = discord.Client(loop = loop)
+    global DIS_CLIENT
+    DIS_CLIENT = discord.Client(loop=loop)
+
+    try:
         # pick type of listener and run
         loop.create_task((WHlistener if WEB_HOOK_FLAG else LPlistener)(db))
         loop.run_forever()
-
     except Exception as err:
         # Any error should send ping message to developer
         BOTLOG.info(FALL_MSG)
@@ -700,7 +719,7 @@ def start_bot(WEB_HOOK_FLAG=True):
                 time.sleep(60)
             else:
                 break
-        raise(err)
+        raise err
     except BaseException as err:
         # Force exit with ctrl+C
         asyncio.run(DIS_CLIENT.logout())
@@ -708,10 +727,6 @@ def start_bot(WEB_HOOK_FLAG=True):
     finally:
         db.connect.close()
         loop.close()
-        with open("botlogs.log", "r") as f:
-            old_logs = f.read()
-        with open("last_botlogs.log", "w") as f:
-            f.write(old_logs)
 
 
 if __name__ == "__main__":
@@ -726,7 +741,15 @@ if __name__ == "__main__":
     parser.add_argument('-b', action="store", dest="bugs", default=None, type=int)
     args = parser.parse_args()
 
-    file_log = logging.FileHandler("botlogs.log", mode="w")
+    logs_path = 'logs'
+    if not os.path.isdir(logs_path):
+        os.mkdir(logs_path)
+
+    file_log = logging.handlers.TimedRotatingFileHandler(
+        f'{logs_path}/botlogs.log',
+        when='D',
+        backupCount=14,
+    )
     console_out = logging.StreamHandler()
     logging.basicConfig(
         handlers=(file_log, console_out),
@@ -736,9 +759,13 @@ if __name__ == "__main__":
     )
     BOTLOG = logging.getLogger("bot")
 
-    if args.port: PORT = args.port
-    if args.ip: HOST_IP = args.ip
-    if args.domen: WEBHOOK_DOMEN = args.domen
+    if args.port:
+        PORT = args.port
+    if args.ip:
+        HOST_IP = args.ip
+    if args.domen:
+        WEBHOOK_DOMEN = args.domen
+
     WEBHOOK_URL = f"https://{WEBHOOK_DOMEN}:{PORT}/{TG_TOKEN}/"
     if args.ssl is not None:
         SELF_SSL = bool(args.ssl)

@@ -1,15 +1,17 @@
 import json
 from random import choice
 
-MAIN_KEYBOARD = [[{'text':'🎭 Stickers'},{'text':'❓ Help'},{'text':'🔨 Settings'},{'text':'📔 About'}]]
+MAIN_KEYBOARD = [[{'text': '🎭 Stickers'}, {'text': '❓ Help'}, {'text': '🔨 Settings'}, {'text': '📔 About'}]]
 
-SETTINGS_KEYBOARD = [[{'text':'↩️ Back'}]]
+SETTINGS_KEYBOARD = [[{'text': '↩️ Back'}]]
 
-KEYBOARD_COMMANDS = { '❓ Help':'help',
-                      '🔨 Settings':'settings',
-                      '📔 About':'about',
-                      '🎭 Stickers':'get_stickers',
-                      '↩️ Back':'start'}
+KEYBOARD_COMMANDS = {
+    '❓ Help': 'help',
+    '🔨 Settings': 'settings',
+    '📔 About': 'about',
+    '🎭 Stickers': 'get_stickers',
+    '↩️ Back': 'start'
+}
 
 BAD_WORD = "*oh*"
 START_MSG = "I'm on"
@@ -36,6 +38,7 @@ ABOUT_TEXT = """📔 About!
 📫 For any questions - telegram: @dashed_man
 
 py3.8"""
+
 
 def build_stream_text(streamer):
     with open("notificslist.json", "r", encoding='utf-8') as f:
