@@ -3,6 +3,7 @@ import re
 import logging
 import time
 from random import randint
+from typing import List
 
 import discord
 
@@ -13,7 +14,7 @@ from config_structure import DiscordConfig
 
 class DiscordSection:
     shelter: 'discord.TextChannel'
-    channels: 'list[discord.TextChannel]'
+    channels: 'List[discord.TextChannel]'
 
     def __init__(self, main_bot: 'main.PootBot', config: 'DiscordConfig', loop):
         self.main_bot = main_bot

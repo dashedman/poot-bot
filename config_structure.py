@@ -1,5 +1,6 @@
 from functools import cached_property
 from dataclasses import dataclass, fields
+from typing import List
 
 
 @dataclass
@@ -9,7 +10,7 @@ class PrettyString:
         for field in fields(self):
             yield field.name, getattr(self, field.name)
 
-    def fields_str(self) -> list[str]:
+    def fields_str(self) -> List[str]:
         lines = []
 
         for field_name, field in self.pfields():
@@ -36,7 +37,7 @@ class TelegramConfig(PrettyString):
     token: str
     is_webhook: bool
     shelter: int
-    channels: list[int]
+    channels: List[int]
 
     @cached_property
     def url(self):
@@ -47,7 +48,7 @@ class TelegramConfig(PrettyString):
 class DiscordConfig(PrettyString):
     token: str
     shelter: int
-    channels: list[int]
+    channels: List[int]
 
 
 @dataclass
