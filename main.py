@@ -210,52 +210,62 @@ class PootBot:
         while counter > 0:
             await asyncio.sleep(0)
 
+    async def check_and_send_stream(self, streamer: dict,  trusted_deep=3):
+        """
+
+        :param streamer: InOut
+        :param trusted_deep:
+        :return:
+        """
+        url = f"{streamer['platform']}/{streamer['id']}"
+
+        # рекурсивная проверка
+        # для удобства хвостовая рекурсия переделана в цикл
+        async def cicle_check():
+            level = 1
+            while level <= trusted_deep and self.alive:
+                # если глубина проверки больше дозволеной то стрим оффлайн
+                try:
+                    # Воспользуемся API streamlink'а. Через сессию получаем инфу о стриме. Если инфы нет - то считаем за офлайн.
+                    res = await self.loop.run_in_executor(
+                        None,
+                        SLS.streams, url
+                    )
+                    if res:
+                        return True  # online
+                except PluginError:
+                    # если проблемы с интернетом
+                    await asyncio.sleep(60)
+                level += 1
+                # если говорит что стрим оффлайн проверим еще раз
+            return False
+
+        online = await cicle_check()
+        self.logger.info(f"{streamer['name']} [{streamer['online']} -> {online}]")
+
+        if online and not streamer["online"]:
+            await self.worker_sender(build_stream_text(streamer))
+        streamer["online"] = online
+
     # demons
     async def streams_demon(self):
-
-        async def check_stream(streamer_, trusted_deep=3):
-            url = f"{streamer_['platform']}/{streamer_['id']}"
-
-            # рекурсивная проверка
-            # для удобства хвостовая рекурсия переделана в цикл
-            async def cicle_check():
-                level = 1
-                while level <= trusted_deep:
-                    # если глубина проверки больше дозволеной то стрим оффлайн
-                    try:
-                        # Воспользуемся API streamlink'а. Через сессию получаем инфу о стриме. Если инфы нет - то считаем за офлайн.
-                        res = await self.loop.run_in_executor(
-                            None,
-                            SLS.streams, url
-                        )
-                        if res:
-                            return True  # online
-                    except PluginError:
-                        # если проблемы с интернетом
-                        await asyncio.sleep(60)
-                    level += 1
-                    # если говорит что стрим оффлайн проверим еще раз
-                return False
-
-            return await cicle_check()
-
         # online profilactic
         streamers = utils.get_streamers()
         for streamer in streamers:
             streamer['online'] = True
         utils.set_streamers(streamers)
 
-        while self.alive:
-            try:
-                for streamer in (streamers := utils.get_streamers()):
-                    online = await check_stream(streamer, 2)
-                    self.logger.info(f"{streamer['name']} [{streamer['online']} -> {online}]")
+        async def stream_watcher(streamer_to_watch):
+            while self.alive:
+                try:
+                    await self.check_and_send_stream(streamer_to_watch)
+                    utils.set_streamers(streamers)
+                except Exception as err:
+                    self.logger.exception('Catch error in streams demon with streamer %s!', streamer_to_watch, exc_info=err)
+                await asyncio.sleep(30)
 
-                    if online and not streamer["online"]:
-                        await self.worker_sender(build_stream_text(streamer))
-                    streamer["online"] = online
-                utils.set_streamers(streamers)
-
-            except Exception as err:
-                self.logger.exception('Catch error in streams demon!', exc_info=err)
-            await asyncio.sleep(30)
+        streamers = utils.get_streamers()
+        streams_watchers_tasks = [
+            stream_watcher(s) for s in streamers
+        ]
+        await asyncio.gather(*streams_watchers_tasks)
