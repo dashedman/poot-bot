@@ -1,3 +1,4 @@
+import json
 import os
 import asyncio
 import logging
@@ -45,15 +46,23 @@ class TelegramSection:
             r = None
 
             while not success:
+                request_url = self.config.url + 'getUpdates'
+                request_params = {"offset": longpoling_offset}
                 try:
                     response = await requests.get(
-                        self.config.url + 'getUpdates',
-                        params={"offset": longpoling_offset},
+                        request_url,
+                        params=request_params,
                         timeout=None
                     )
                     r = response.json()
                 except TimeoutError:
                     pass
+                except json.JSONDecodeError as exc:
+                    self.logger.warning(
+                        'Catch JSON decode error!\nRequest:\n%s\n.\n',
+                        f'Url: {request_url}\nParams: {request_params}',
+                        exc_info=exc
+                    )
                 else:
                     success = r['ok']
                 await asyncio.sleep(longpoling_delay)
