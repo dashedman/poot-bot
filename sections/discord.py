@@ -22,7 +22,8 @@ class DiscordSection:
         self.config = config
         self.logger = logging.getLogger('dis_section')
 
-        self.client = discord.Client(loop=self.loop)
+        intents = discord.Intents.default()
+        self.client = discord.Client(intents=intents, loop=self.loop)
         self.channels = []
 
         self.last_joke = 0
