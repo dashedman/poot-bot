@@ -210,7 +210,7 @@ class PootBot:
         while counter > 0:
             await asyncio.sleep(0)
 
-    async def check_and_send_stream(self, streamer: dict,  trusted_deep=3):
+    async def check_and_send_stream(self, streamer: dict,  trusted_deep=5):
         """
 
         :param streamer: InOut
@@ -237,6 +237,7 @@ class PootBot:
                     # если проблемы с интернетом
                     await asyncio.sleep(60)
                 level += 1
+                await asyncio.sleep(60)
                 # если говорит что стрим оффлайн проверим еще раз
             return False
 
