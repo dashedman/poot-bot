@@ -16,14 +16,14 @@ class DiscordSection:
     shelter: 'discord.TextChannel'
     channels: 'List[discord.TextChannel]'
 
-    def __init__(self, main_bot: 'main.PootBot', config: 'DiscordConfig', loop):
+    def __init__(self, main_bot: 'main.PootBot', config: 'DiscordConfig'):
         self.main_bot = main_bot
-        self.loop = loop
         self.config = config
         self.logger = logging.getLogger('dis_section')
 
         intents = discord.Intents.default()
-        self.client = discord.Client(intents=intents, loop=self.loop)
+        intents.message_content = True
+        self.client = discord.Client(intents=intents)
         self.channels = []
 
         self.last_joke = 0
@@ -49,7 +49,8 @@ class DiscordSection:
         client = self.client
 
         @client.event
-        async def on_message(message):
+        async def on_message(message: discord.Message):
+            self.logger.debug('@%s > "%s"', message.author, message.content)
             if message.author == self.client.user:
                 return
 
@@ -89,16 +90,18 @@ class DiscordSection:
             elif command == 'about':
                 await message.channel.send(uic.ABOUT_TEXT)
             elif command == 'get_id':
-                await message.channel.send(message.channel.id)
+                await message.channel.send(str(message.channel.id))
             elif command == '?':
                 await message.channel.send("да" if randint(0, 1) else "нет")
             elif command == 'help':
                 await message.channel.send("Не жди помощи. Этот мир прогнил...")
 
         await self.client.login(self.config.token)
-        asyncio.create_task(self.load_channels())
-        try:
-            await self.client.connect()
-        except BaseException as err:
-            self.logger.exception('ПИПАВСЬ!', exc_info=err)
-            raise err
+
+        async with asyncio.TaskGroup() as tg:
+            tg.create_task(self.load_channels())
+            try:
+                await self.client.connect()
+            except BaseException as err:
+                self.logger.exception('ПИПАВСЬ!', exc_info=err)
+                raise err

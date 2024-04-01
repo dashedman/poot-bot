@@ -26,7 +26,6 @@ SLS.set_plugin_option("twitch", "disable-ads", True)
 
 
 class PootBot:
-    loop: 'asyncio.AbstractEventLoop'
     discord: 'sections.DiscordSection'
     telegram: 'sections.TelegramSection'
     db: 'namedtuple'
@@ -44,24 +43,17 @@ class PootBot:
         # print important constants
         self.logger.info(self.config.pretty_str())
 
-        self.loop = asyncio.get_event_loop()
-        try:
-            self.loop.add_signal_handler(signal.SIGINT, lambda: self.loop.stop())
-            self.loop.add_signal_handler(signal.SIGTERM, lambda: self.loop.stop())
-        except NotImplementedError:
-            pass
+        self.discord = sections.DiscordSection(self, self.config.discord)
+        self.telegram = sections.TelegramSection(self, self.config.telegram)
 
-        self.discord = sections.DiscordSection(self, self.config.discord, self.loop)
-        self.telegram = sections.TelegramSection(self, self.config.telegram, self.loop)
-
-        self.loop.run_until_complete(self.run())
+        asyncio.run(self.run(), debug=True)
 
     async def run(self):
         try:
             await asyncio.gather(
-                self.telegram.listener(),
-                self.discord.demon(),
-                self.streams_demon(),
+                asyncio.create_task(self.telegram.listener(), name='TelegramAsyncTask'),
+                asyncio.create_task(self.discord.demon(), name='DiscordAsyncTask'),
+                asyncio.create_task(self.streams_demon(), name='StreamsAsyncTask'),
             )
         except Exception as err:
             # Any error should send ping message to developer
@@ -186,29 +178,20 @@ class PootBot:
                 await self.discord.shelter.send(tmp_text[1])
 
     async def worker_sender(self, send_text):
-        counter = 0
-
-        async def sender(send_func):
-            nonlocal counter
-            counter += 1
-            await send_func
-            counter -= 1
 
         # asyncio.create_task(sender(self.telegram.send_message(
         #     TG_SHELTER,
         #     send_text[0]
         # )))
-        for channel in self.config.telegram.channels:
-            asyncio.create_task(sender(self.telegram.send_message(
-                channel,
-                send_text[0]
-            )))
+        async with asyncio.TaskGroup() as tg:
+            for channel in self.config.telegram.channels:
+                tg.create_task(self.telegram.send_message(
+                    channel,
+                    send_text[0]
+                ))
 
-        for channel in self.discord.channels:
-            asyncio.create_task(sender(channel.send(send_text[1])))
-
-        while counter > 0:
-            await asyncio.sleep(0)
+            for channel in self.discord.channels:
+                tg.create_task(channel.send(send_text[1]))
 
     async def check_and_send_stream(self, streamer: dict,  trusted_deep=5):
         """
@@ -226,10 +209,11 @@ class PootBot:
             while level <= trusted_deep and self.alive:
                 # если глубина проверки больше дозволеной то стрим оффлайн
                 try:
-                    # Воспользуемся API streamlink'а. Через сессию получаем инфу о стриме. Если инфы нет - то считаем за офлайн.
-                    res = await self.loop.run_in_executor(
-                        None,
-                        SLS.streams, url
+                    # Воспользуемся API streamlink'а. Через сессию получаем инфу о стриме.
+                    # Если инфы нет - то считаем за офлайн.
+                    res = await asyncio.to_thread(
+                        SLS.streams,
+                        url=url
                     )
                     if res:
                         return True  # online

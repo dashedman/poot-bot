@@ -6,9 +6,7 @@ import ssl
 import time
 from pprint import pformat
 
-import requests_async as requests
-from sanic import Sanic
-from sanic.response import json as sanic_json
+import aiohttp.web
 
 import main
 import utils
@@ -18,10 +16,9 @@ from config_structure import TelegramConfig
 
 class TelegramSection:
 
-    def __init__(self, main_bot, config, loop):
+    def __init__(self, main_bot, config):
         self.main_bot: 'main.PootBot' = main_bot
         self.config: 'TelegramConfig' = config
-        self.loop = loop
         self.logger = logging.getLogger('tg_section')
 
     def listener(self):
@@ -39,38 +36,37 @@ class TelegramSection:
 
         # start listen
         self.logger.info(f"Listening...")
-        while True:
 
-            # get new messages
-            success = False
-            r = None
+        async with asyncio.TaskGroup() as tg:
+            while True:
 
-            while not success:
-                request_url = self.config.url + 'getUpdates'
-                request_params = {"offset": longpoling_offset}
-                try:
-                    response = await requests.get(
-                        request_url,
-                        params=request_params,
-                        timeout=None
-                    )
-                    r = response.json()
-                except TimeoutError:
-                    pass
-                except json.JSONDecodeError as exc:
-                    self.logger.warning(
-                        'Catch JSON decode error!\nRequest:\n%s\n.\n',
-                        f'Url: {request_url}\nParams: {request_params}',
-                        exc_info=exc
-                    )
-                else:
-                    success = r['ok']
-                await asyncio.sleep(longpoling_delay)
+                # get new messages
+                success = False
+                r = None
 
-            # go to proceed all of them
-            for result in r['result']:
-                longpoling_offset = max(longpoling_offset, result['update_id']) + 1
-                asyncio.create_task(self.main_worker(result))
+                while not success:
+                    request_url = self.config.url + 'getUpdates'
+                    request_params = {"offset": longpoling_offset}
+                    try:
+                        async with aiohttp.ClientSession(timeout=None) as session:
+                            async with session.get(request_url, params=request_params) as response:
+                                r = await response.json()
+                    except TimeoutError:
+                        pass
+                    except json.JSONDecodeError as exc:
+                        self.logger.warning(
+                            'Catch JSON decode error!\nRequest:\n%s\n.\n',
+                            f'Url: {request_url}\nParams: {request_params}',
+                            exc_info=exc
+                        )
+                    else:
+                        success = r['ok']
+                    await asyncio.sleep(longpoling_delay)
+
+                # go to proceed all of them
+                for result in r['result']:
+                    longpoling_offset = max(longpoling_offset, result['update_id']) + 1
+                    tg.create_task(self.main_worker(result))
 
     async def wh_listener(self):
         self.logger.info(f"Set Webhook...")
@@ -97,7 +93,7 @@ class TelegramSection:
             context = None
             await self.set_webhook(webhook_url)
 
-        response = (await self.get_webhook_info()).json()
+        response = await self.get_webhook_info()
         if not response['ok']:
             self.logger.info("Webhook wasn't setted")
             self.logger.debug(pformat(response))
@@ -114,23 +110,28 @@ class TelegramSection:
             self.logger.info(f"Shut down...")
             return
 
-        app_listener = Sanic(__name__)
+        app_listener = aiohttp.web.Application()
 
-        @app_listener.route(f'/{self.config.token}/', methods=['GET', 'POST'])
         async def receive_update(request):
             if request.method == "POST":
                 await self.main_worker(request.json)
-            return sanic_json({"ok": True})
+            return aiohttp.web.json_response({"ok": True})
+
+        app_listener.add_routes([
+            aiohttp.web.get(f'/{self.config.token}/', receive_update),
+            aiohttp.web.post(f'/{self.config.token}/', receive_update),
+        ])
 
         self.logger.info(f"Listening...")
-        server = app_listener.create_server(
+        runner = aiohttp.web.AppRunner(app_listener)
+        await runner.setup()
+        site = aiohttp.web.TCPSite(
+            runner,
             host=network.host_ip,
             port=network.port,
-            return_asyncio_server=True,
-            access_log=False,
-            ssl=context if ssl_conf.self_ssl else None
-        )
-        await server
+            ssl_context=context if ssl_conf.self_ssl else None)
+        await site.start()
+        return asyncio.Future()     # forever future
 
     # tg send functions
     async def main_worker(self, result):
@@ -179,8 +180,9 @@ class TelegramSection:
         }
         data.update(kwargs)
 
-        response = await requests.post(self.config.url + 'sendMessage', json=data, timeout=None)
-        r = response.json()
+        async with aiohttp.ClientSession(timeout=None) as session:
+            async with session.post(self.config.url + 'sendMessage', json=data) as response:
+                r = await response.json()
 
         if not r['ok']:
             if r['error_code'] == 429:
@@ -199,8 +201,9 @@ class TelegramSection:
         }
         data.update(kwargs)
 
-        response = await requests.post(self.config.url + 'sendMessage', json=data, timeout=None)
-        r = response.json()
+        async with aiohttp.ClientSession(timeout=None) as session:
+            async with session.post(self.config.url + 'sendMessage', json=data) as response:
+                r = await response.json()
 
         if not r['ok']:
             self.logger.info(pformat(r))
@@ -221,8 +224,9 @@ class TelegramSection:
             'reply_markup': keyboard
         }
 
-        response = await requests.post(self.config.url + 'editMessageReplyMarkup', json=data, timeout=None)
-        r = response.json()
+        async with aiohttp.ClientSession(timeout=None) as session:
+            async with session.post(self.config.url + 'editMessageReplyMarkup', json=data) as response:
+                r = await response.json()
 
         if not r['ok']:
             if r['error_code'] == 429:
@@ -241,8 +245,9 @@ class TelegramSection:
             'user_id': user_id
         }
 
-        response = await requests.post(self.config.url + 'getChatMember', json=data, timeout=None)
-        r = response.json()
+        async with aiohttp.ClientSession(timeout=None) as session:
+            async with session.post(self.config.url + 'getChatMember', json=data) as response:
+                r = await response.json()
 
         if not r['ok']:
             if r['error_code'] == 429:
@@ -265,12 +270,16 @@ class TelegramSection:
         return False
 
     async def set_webhook(self, url='', certificate=None):
-        await requests.post(
-            self.config.url + 'setWebhook',
-            data={'url': url},
-            files={'certificate': certificate} if certificate else None,
-            timeout=None
-        )
+        async with aiohttp.ClientSession(timeout=None) as session:
+            async with session.post(
+                self.config.url + 'setWebhook',
+                json={'url': url},
+                data={'certificate': certificate} if certificate else None
+            ) as response:
+                r = await response.json()
 
     async def get_webhook_info(self):
-        return await requests.post(self.config.url + 'getWebhookInfo', timeout=None)
+        async with aiohttp.ClientSession(timeout=None) as session:
+            async with session.post(self.config.url + 'getWebhookInfo') as response:
+                r = await response.json()
+                return r
