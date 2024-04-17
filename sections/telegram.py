@@ -7,6 +7,7 @@ import time
 from pprint import pformat
 
 import aiohttp.web
+import aiohttp.client_exceptions
 
 import main
 import utils
@@ -51,7 +52,7 @@ class TelegramSection:
                         async with aiohttp.ClientSession(timeout=None) as session:
                             async with session.get(request_url, params=request_params) as response:
                                 r = await response.json()
-                    except TimeoutError:
+                    except (TimeoutError, aiohttp.client_exceptions.ClientConnectionError):
                         pass
                     except json.JSONDecodeError as exc:
                         self.logger.warning(
